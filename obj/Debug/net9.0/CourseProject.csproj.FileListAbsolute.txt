@@ -1,0 +1,14 @@
+/Users/n1994/Projects/ezjivich/dotnet/CourseProject/CourseProject/obj/Debug/net9.0/CourseProject.GeneratedMSBuildEditorConfig.editorconfig
+/Users/n1994/Projects/ezjivich/dotnet/CourseProject/CourseProject/obj/Debug/net9.0/CourseProject.AssemblyInfoInputs.cache
+/Users/n1994/Projects/ezjivich/dotnet/CourseProject/CourseProject/obj/Debug/net9.0/CourseProject.AssemblyInfo.cs
+/Users/n1994/Projects/ezjivich/dotnet/CourseProject/CourseProject/obj/Debug/net9.0/CourseProject.csproj.CoreCompileInputs.cache
+/Users/n1994/Projects/ezjivich/dotnet/CourseProject/CourseProject/bin/Debug/net9.0/CourseProject
+/Users/n1994/Projects/ezjivich/dotnet/CourseProject/CourseProject/bin/Debug/net9.0/CourseProject.deps.json
+/Users/n1994/Projects/ezjivich/dotnet/CourseProject/CourseProject/bin/Debug/net9.0/CourseProject.runtimeconfig.json
+/Users/n1994/Projects/ezjivich/dotnet/CourseProject/CourseProject/bin/Debug/net9.0/CourseProject.dll
+/Users/n1994/Projects/ezjivich/dotnet/CourseProject/CourseProject/bin/Debug/net9.0/CourseProject.pdb
+/Users/n1994/Projects/ezjivich/dotnet/CourseProject/CourseProject/obj/Debug/net9.0/CourseProject.dll
+/Users/n1994/Projects/ezjivich/dotnet/CourseProject/CourseProject/obj/Debug/net9.0/refint/CourseProject.dll
+/Users/n1994/Projects/ezjivich/dotnet/CourseProject/CourseProject/obj/Debug/net9.0/CourseProject.pdb
+/Users/n1994/Projects/ezjivich/dotnet/CourseProject/CourseProject/obj/Debug/net9.0/CourseProject.genruntimeconfig.cache
+/Users/n1994/Projects/ezjivich/dotnet/CourseProject/CourseProject/obj/Debug/net9.0/ref/CourseProject.dll
