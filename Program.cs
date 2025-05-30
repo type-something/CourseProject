@@ -34,8 +34,10 @@ async Task HandleClientAsync(TcpClient client)
         using var reader = new StreamReader(stream, Encoding.UTF8);
         var requestLine = await reader.ReadLineAsync();
         if (requestLine == null) return;
+
         var parts = requestLine.Split(' ', 3);
         if (parts.Length != 3) return;
+
         var (method, path, version) = (parts[0], parts[1], parts[2]);
 
         if (method != "GET")
@@ -84,15 +86,27 @@ bool IsAllowedExtension(string path)
 {
     var ext = Path.GetExtension(path).ToLower();
 
-     string[] allowedExtensions = [".html", ".css", ".js"];
+    string[] allowedExtensions = [".html", ".css", ".js"];
     return allowedExtensions.Contains(ext);
 }
 
 async Task WriteResponseAsync(NetworkStream stream, int code, string text)
 {
     var body = $"<h1>{code} {text}</h1>";
-    var resp = $"HTTP/1.1 {code} {text}\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n{body}";
-    await stream.WriteAsync(Encoding.UTF8.GetBytes(resp));
+    var bodyBytes = Encoding.UTF8.GetBytes(body);
+
+    var headers = new[]
+    {
+        $"HTTP/1.1 {code} {text}",
+        "Content-Type: text/html",
+        $"Content-Length: {bodyBytes.Length}",
+        "Connection: close",
+        ""
+    };
+
+    var headerBytes = Encoding.UTF8.GetBytes(string.Join("\r\n", headers));
+    await stream.WriteAsync(headerBytes);
+    await stream.WriteAsync(bodyBytes);
 }
 
 var listener = new TcpListener(IPAddress.Any, PORT);
