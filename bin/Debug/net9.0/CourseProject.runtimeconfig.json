@@ -6,6 +6,7 @@
       "version": "9.0.0"
     },
     "configProperties": {
+      "WebRootPath": "/Users/n1994/Projects/ezjivich/dotnet/CourseProject/CourseProject/webroot",
       "System.Runtime.Serialization.EnableUnsafeBinaryFormatterSerialization": false
     }
   }

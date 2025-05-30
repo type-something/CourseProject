@@ -1,0 +1,13 @@
+curl -v http://localhost:8080/styles.css
+curl -v http://localhost:8080/index.html
+curl -v http://localhost:8080/about.html
+curl -v http://localhost:8080/error.html
+
+for i in {1..20}; do
+  curl -s http://localhost:8080/index.html >/dev/null &
+done
+wait
+
+
+# requires wrk package
+wrk -t4 -c50 -d10s http://127.0.0.1:8080/index.html
