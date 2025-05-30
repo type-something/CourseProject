@@ -4,7 +4,7 @@ using System.Text;
 using System.Diagnostics;
 
 const int PORT = 8080;
-var webRootPath = AppContext.GetData("WebRootPath") as string ?? "webroot";
+var webRootPath = AppContext.GetData("WebRootPath") as string ?? Path.Combine(AppContext.BaseDirectory, "webroot");
 int activeHandlers = 0;
 
 var poolMonitor = new Timer(_ =>
@@ -30,7 +30,7 @@ string GetContentType(string path)
         ".html" => "text/html; charset=utf-8",
         ".css" => "text/css; charset=utf-8",
         ".js" => "application/javascript; charset=utf-8",
-        _ => "application/octet-stream"
+        _ => "text/html; charset=utf-8"
     };
 }
 
@@ -71,7 +71,7 @@ async Task HandleClientAsync(TcpClient client)
             return;
         }
 
-        if (path.Contains("..") || !IsAllowedExtension(path))
+        if (path.Contains(".."))
         {
             await WriteResponseAsync(stream, 403, "Forbidden", path);
             return;
@@ -90,6 +90,12 @@ async Task HandleClientAsync(TcpClient client)
         if (!File.Exists(filePath))
         {
             await WriteResponseAsync(stream, 404, "Not Found", path);
+            return;
+        }
+
+        if (!IsAllowedExtension(path))
+        {
+            await WriteResponseAsync(stream, 403, "Forbidden", path);
             return;
         }
 
@@ -118,31 +124,45 @@ bool IsAllowedExtension(string path)
 
 async Task WriteResponseAsync(NetworkStream stream, int code, string text, string path)
 {
-    var contentType = GetContentType(path);
+    var contentType = "text/html; charset=utf-8";
     byte[] bodyBytes;
 
     var errorPagePath = Path.Combine(webRootPath, "error.html");
+    Console.WriteLine($"[Error] Attempting to use error page at: {errorPagePath}");
+    Console.WriteLine($"[Error] File exists: {File.Exists(errorPagePath)}");
+
     if (File.Exists(errorPagePath))
     {
-        bodyBytes = await File.ReadAllBytesAsync(errorPagePath);
+        try
+        {
+            var errorHtml = await File.ReadAllTextAsync(errorPagePath);
+            errorHtml = errorHtml.Replace("{{ERROR_CODE}}", code.ToString())
+                                .Replace("{{ERROR_TEXT}}", text);
+            bodyBytes = Encoding.UTF8.GetBytes(errorHtml);
+            Console.WriteLine($"[Error] Successfully loaded and processed error page for {code}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Error] Failed to process error page: {ex.Message}");
+            var body = $"<h1>{{ERROR_CODE}} - {{ERROR_TEXT}}</h1>";
+            bodyBytes = Encoding.UTF8.GetBytes(body);
+        }
     }
     else
     {
-        var body = $"<h1>{code} {text}</h1>";
+        Console.WriteLine($"[Error] Error page not found at {errorPagePath}");
+        var body = $"<h1>{{ERROR_CODE}} - {{ERROR_TEXT}}</h1>";
         bodyBytes = Encoding.UTF8.GetBytes(body);
     }
 
-    var headers = new[]
-    {
-        $"HTTP/1.1 {code} {text}",
-        $"Content-Type: {contentType}",
-        $"Content-Length: {bodyBytes.Length}",
-        "Connection: close",
-        ""
-    };
+    var headers =
+        $"HTTP/1.1 {code} {text}\r\n" +
+        $"Content-Type: {contentType}\r\n" +
+        $"Content-Length: {bodyBytes.Length}\r\n" +
+        "Connection: close\r\n" +
+        "\r\n";
 
-    var headerBytes = Encoding.UTF8.GetBytes(string.Join("\r\n", headers));
-    await stream.WriteAsync(headerBytes);
+    await stream.WriteAsync(Encoding.UTF8.GetBytes(headers));
     await stream.WriteAsync(bodyBytes);
 }
 

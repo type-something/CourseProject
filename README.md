@@ -1,3 +1,17 @@
+# how to launch
+
+```bash
+cd CourseProject
+dotnet build
+dotnet run
+
+# try it
+curl http://localhost:8080/index.html
+curl http://localhost:8080/error.html
+curl http://localhost:8080/nonexist_34ru34nrj3fi3n4f03i4
+curl http://localhost:8080/styles.css
+```
+
 # run application
 
 ```bash
@@ -11,18 +25,10 @@ dotnet run
 # test
 dotnet test
 
-# try it
-curl http://localhost:8080/styles.css
+
 ```
 
 Files in `webroot/` are served at `http://localhost:8080/`. Server logs requests to `requests.log`.
-
-```bash
-# how to launch
-cd CourseProject
-dotnet build
-dotnet run
-```
 
 ## Testing
 
