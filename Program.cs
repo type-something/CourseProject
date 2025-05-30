@@ -50,7 +50,8 @@ async Task HandleClientAsync(TcpClient client)
         var parts = requestLine.Split(' ', 3);
         if (parts.Length != 3) return;
 
-        var (method, path, version) = (parts[0], parts[1], parts[2]);
+        var (method, rawPath, version) = (parts[0], parts[1], parts[2]);
+        var path = WebUtility.UrlDecode(rawPath);
 
         if (method != "GET")
         {
@@ -97,8 +98,18 @@ bool IsAllowedExtension(string path)
 async Task WriteResponseAsync(NetworkStream stream, int code, string text, string path)
 {
     var contentType = GetContentType(path);
-    var body = $"<h1>{code} {text}</h1>";
-    var bodyBytes = Encoding.UTF8.GetBytes(body);
+    byte[] bodyBytes;
+
+    var errorPagePath = Path.Combine(webRootPath, "error.html");
+    if (File.Exists(errorPagePath))
+    {
+        bodyBytes = await File.ReadAllBytesAsync(errorPagePath);
+    }
+    else
+    {
+        var body = $"<h1>{code} {text}</h1>";
+        bodyBytes = Encoding.UTF8.GetBytes(body);
+    }
 
     var headers = new[]
     {
