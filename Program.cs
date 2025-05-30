@@ -22,6 +22,18 @@ void LogOsThreads(string context)
     Console.WriteLine($"[OS Threads] {context}: {count}");
 }
 
+string GetContentType(string path)
+{
+    var ext = Path.GetExtension(path).ToLower();
+    return ext switch
+    {
+        ".html" => "text/html; charset=utf-8",
+        ".css" => "text/css; charset=utf-8",
+        ".js" => "application/javascript; charset=utf-8",
+        _ => "application/octet-stream"
+    };
+}
+
 async Task HandleClientAsync(TcpClient client)
 {
     // LogOsThreads("enter handler");
@@ -42,32 +54,24 @@ async Task HandleClientAsync(TcpClient client)
 
         if (method != "GET")
         {
-            await WriteResponseAsync(stream, 405, "Method Not Allowed");
+            await WriteResponseAsync(stream, 405, "Method Not Allowed", path);
             return;
         }
 
         if (path.Contains("..") || !IsAllowedExtension(path))
         {
-            await WriteResponseAsync(stream, 403, "Forbidden");
+            await WriteResponseAsync(stream, 403, "Forbidden", path);
             return;
         }
 
         var filePath = Path.Combine(webRootPath, path.TrimStart('/'));
         if (!File.Exists(filePath))
         {
-            await WriteResponseAsync(stream, 404, "Not Found");
+            await WriteResponseAsync(stream, 404, "Not Found", path);
             return;
         }
 
-        var ext = Path.GetExtension(filePath).ToLower();
-        var contentType = ext switch
-        {
-            ".html" => "text/html",
-            ".css" => "text/css",
-            ".js" => "application/javascript",
-            _ => "application/octet-stream"
-        };
-
+        var contentType = GetContentType(path);
         var fileBytes = await File.ReadAllBytesAsync(filePath);
         var headers = $"HTTP/1.1 200 OK\r\nContent-Type: {contentType}\r\nContent-Length: {fileBytes.Length}\r\nConnection: close\r\n\r\n";
         await stream.WriteAsync(Encoding.UTF8.GetBytes(headers));
@@ -90,15 +94,16 @@ bool IsAllowedExtension(string path)
     return allowedExtensions.Contains(ext);
 }
 
-async Task WriteResponseAsync(NetworkStream stream, int code, string text)
+async Task WriteResponseAsync(NetworkStream stream, int code, string text, string path)
 {
+    var contentType = GetContentType(path);
     var body = $"<h1>{code} {text}</h1>";
     var bodyBytes = Encoding.UTF8.GetBytes(body);
 
     var headers = new[]
     {
         $"HTTP/1.1 {code} {text}",
-        "Content-Type: text/html",
+        $"Content-Type: {contentType}",
         $"Content-Length: {bodyBytes.Length}",
         "Connection: close",
         ""
