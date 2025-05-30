@@ -47,6 +47,18 @@ async Task HandleClientAsync(TcpClient client)
         var requestLine = await reader.ReadLineAsync();
         if (requestLine == null) return;
 
+        try
+        {
+            var clientIp = ((IPEndPoint)client.Client.RemoteEndPoint!).Address.ToString();
+            var logEntry = $"{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ss.fffZ} {clientIp} {requestLine}";
+            var logPath = Path.Combine(AppContext.BaseDirectory, "requests.log");
+            await File.AppendAllLinesAsync(logPath, new[] { logEntry });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to write to log: {ex.Message}");
+        }
+
         var parts = requestLine.Split(' ', 3);
         if (parts.Length != 3) return;
 
@@ -66,6 +78,15 @@ async Task HandleClientAsync(TcpClient client)
         }
 
         var filePath = Path.Combine(webRootPath, path.TrimStart('/'));
+        var fullFilePath = Path.GetFullPath(filePath);
+        var fullWebRootPath = Path.GetFullPath(webRootPath);
+
+        if (!fullFilePath.StartsWith(fullWebRootPath))
+        {
+            await WriteResponseAsync(stream, 403, "Forbidden", path);
+            return;
+        }
+
         if (!File.Exists(filePath))
         {
             await WriteResponseAsync(stream, 404, "Not Found", path);
