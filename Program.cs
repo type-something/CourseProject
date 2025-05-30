@@ -1,26 +1,42 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using System.Text;
-
+using System.Diagnostics;
 
 const int PORT = 8080;
 var webRootPath = AppContext.GetData("WebRootPath") as string ?? "webroot";
+int activeHandlers = 0;
+
+var poolMonitor = new Timer(_ =>
+{
+    ThreadPool.GetAvailableThreads(out var availWorkers, out var availIO);
+    ThreadPool.GetMaxThreads(out var maxWorkers, out var maxIO);
+    var usedWorkers = maxWorkers - availWorkers;
+    var usedIO = maxIO - availIO;
+    Console.WriteLine($"[ThreadPool] Workers: {usedWorkers}/{maxWorkers}, IO: {usedIO}/{maxIO}");
+}, null, TimeSpan.Zero, TimeSpan.FromSeconds(10));
+
+void LogOsThreads(string context)
+{
+    var count = Process.GetCurrentProcess().Threads.Count;
+    Console.WriteLine($"[OS Threads] {context}: {count}");
+}
 
 async Task HandleClientAsync(TcpClient client)
 {
+    // LogOsThreads("enter handler");
+    Interlocked.Increment(ref activeHandlers);
+    Console.WriteLine($"[Handlers] {activeHandlers}");
+
     try
     {
         using var stream = client.GetStream();
         using var reader = new StreamReader(stream, Encoding.UTF8);
-
         var requestLine = await reader.ReadLineAsync();
         if (requestLine == null) return;
-
         var parts = requestLine.Split(' ', 3);
         if (parts.Length != 3) return;
-
         var (method, path, version) = (parts[0], parts[1], parts[2]);
-        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] {method} {path}");
 
         if (method != "GET")
         {
@@ -58,13 +74,18 @@ async Task HandleClientAsync(TcpClient client)
     finally
     {
         client.Dispose();
+        Interlocked.Decrement(ref activeHandlers);
+        Console.WriteLine($"[Handlers] {activeHandlers}");
+        // LogOsThreads("exit handler");
     }
 }
 
 bool IsAllowedExtension(string path)
 {
     var ext = Path.GetExtension(path).ToLower();
-    return ext is ".html" or ".css" or ".js";
+
+     string[] allowedExtensions = [".html", ".css", ".js"];
+    return allowedExtensions.Contains(ext);
 }
 
 async Task WriteResponseAsync(NetworkStream stream, int code, string text)
@@ -77,9 +98,12 @@ async Task WriteResponseAsync(NetworkStream stream, int code, string text)
 var listener = new TcpListener(IPAddress.Any, PORT);
 listener.Start();
 Console.WriteLine($"Server on {PORT}, root {Path.GetFullPath(webRootPath)}");
+LogOsThreads("startup");
 
 while (true)
 {
     var client = await listener.AcceptTcpClientAsync();
+    // LogOsThreads("before dispatch");
     _ = Task.Run(() => HandleClientAsync(client));
+    // LogOsThreads("after dispatch");
 }
