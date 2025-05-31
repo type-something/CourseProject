@@ -1,180 +1,26 @@
 ﻿using System.Net;
 using System.Net.Sockets;
-using System.Text;
-using System.Diagnostics;
+using CourseProject.Configuration;
+using CourseProject.Services;
 
-const int PORT = 8080;
-var webRootPath = AppContext.GetData("WebRootPath") as string ?? Path.Combine(AppContext.BaseDirectory, "webroot");
-int activeHandlers = 0;
+var config = new ServerConfig();
+var fileService = new FileService(config.WebRootPath);
+var loggingService = new LoggingService();
+var httpHandler = new HttpHandler(fileService, loggingService);
 
 var poolMonitor = new Timer(_ =>
 {
-    ThreadPool.GetAvailableThreads(out var availWorkers, out var availIO);
-    ThreadPool.GetMaxThreads(out var maxWorkers, out var maxIO);
-    var usedWorkers = maxWorkers - availWorkers;
-    var usedIO = maxIO - availIO;
-    Console.WriteLine($"[ThreadPool] Workers: {usedWorkers}/{maxWorkers}, IO: {usedIO}/{maxIO}");
-}, null, TimeSpan.Zero, TimeSpan.FromSeconds(10));
+    // Console.WriteLine("here");
+    loggingService.LogThreadPoolStatus();
+}, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
 
-void LogOsThreads(string context)
-{
-    var count = Process.GetCurrentProcess().Threads.Count;
-    Console.WriteLine($"[OS Threads] {context}: {count}");
-}
-
-string GetContentType(string path)
-{
-    var ext = Path.GetExtension(path).ToLower();
-    return ext switch
-    {
-        ".html" => "text/html; charset=utf-8",
-        ".css" => "text/css; charset=utf-8",
-        ".js" => "application/javascript; charset=utf-8",
-        _ => "text/html; charset=utf-8"
-    };
-}
-
-async Task HandleClientAsync(TcpClient client)
-{
-    // LogOsThreads("enter handler");
-    Interlocked.Increment(ref activeHandlers);
-    Console.WriteLine($"[Handlers] {activeHandlers}");
-
-    try
-    {
-        using var stream = client.GetStream();
-        using var reader = new StreamReader(stream, Encoding.UTF8);
-        var requestLine = await reader.ReadLineAsync();
-        if (requestLine == null) return;
-
-        try
-        {
-            var clientIp = ((IPEndPoint)client.Client.RemoteEndPoint!).Address.ToString();
-            var logEntry = $"{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ss.fffZ} {clientIp} {requestLine}";
-            var logPath = Path.Combine(AppContext.BaseDirectory, "requests.log");
-            await File.AppendAllLinesAsync(logPath, new[] { logEntry });
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Failed to write to log: {ex.Message}");
-        }
-
-        var parts = requestLine.Split(' ', 3);
-        if (parts.Length != 3) return;
-
-        var (method, rawPath, version) = (parts[0], parts[1], parts[2]);
-        var path = WebUtility.UrlDecode(rawPath);
-
-        if (method != "GET")
-        {
-            await WriteResponseAsync(stream, 405, "Method Not Allowed", path);
-            return;
-        }
-
-        if (path.Contains(".."))
-        {
-            await WriteResponseAsync(stream, 403, "Forbidden", path);
-            return;
-        }
-
-        var filePath = Path.Combine(webRootPath, path.TrimStart('/'));
-        var fullFilePath = Path.GetFullPath(filePath);
-        var fullWebRootPath = Path.GetFullPath(webRootPath);
-
-        if (!fullFilePath.StartsWith(fullWebRootPath))
-        {
-            await WriteResponseAsync(stream, 403, "Forbidden", path);
-            return;
-        }
-
-        if (!File.Exists(filePath))
-        {
-            await WriteResponseAsync(stream, 404, "Not Found", path);
-            return;
-        }
-
-        if (!IsAllowedExtension(path))
-        {
-            await WriteResponseAsync(stream, 403, "Forbidden", path);
-            return;
-        }
-
-        var contentType = GetContentType(path);
-        var fileBytes = await File.ReadAllBytesAsync(filePath);
-        var headers = $"HTTP/1.1 200 OK\r\nContent-Type: {contentType}\r\nContent-Length: {fileBytes.Length}\r\nConnection: close\r\n\r\n";
-        await stream.WriteAsync(Encoding.UTF8.GetBytes(headers));
-        await stream.WriteAsync(fileBytes);
-    }
-    finally
-    {
-        client.Dispose();
-        Interlocked.Decrement(ref activeHandlers);
-        Console.WriteLine($"[Handlers] {activeHandlers}");
-        // LogOsThreads("exit handler");
-    }
-}
-
-bool IsAllowedExtension(string path)
-{
-    var ext = Path.GetExtension(path).ToLower();
-
-    string[] allowedExtensions = [".html", ".css", ".js"];
-    return allowedExtensions.Contains(ext);
-}
-
-async Task WriteResponseAsync(NetworkStream stream, int code, string text, string path)
-{
-    var contentType = "text/html; charset=utf-8";
-    byte[] bodyBytes;
-
-    var errorPagePath = Path.Combine(webRootPath, "error.html");
-    Console.WriteLine($"[Error] Attempting to use error page at: {errorPagePath}");
-    Console.WriteLine($"[Error] File exists: {File.Exists(errorPagePath)}");
-
-    if (File.Exists(errorPagePath))
-    {
-        try
-        {
-            var errorHtml = await File.ReadAllTextAsync(errorPagePath);
-            errorHtml = errorHtml.Replace("{{ERROR_CODE}}", code.ToString())
-                                .Replace("{{ERROR_TEXT}}", text);
-            bodyBytes = Encoding.UTF8.GetBytes(errorHtml);
-            Console.WriteLine($"[Error] Successfully loaded and processed error page for {code}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Error] Failed to process error page: {ex.Message}");
-            var body = $"<h1>{{ERROR_CODE}} - {{ERROR_TEXT}}</h1>";
-            bodyBytes = Encoding.UTF8.GetBytes(body);
-        }
-    }
-    else
-    {
-        Console.WriteLine($"[Error] Error page not found at {errorPagePath}");
-        var body = $"<h1>{{ERROR_CODE}} - {{ERROR_TEXT}}</h1>";
-        bodyBytes = Encoding.UTF8.GetBytes(body);
-    }
-
-    var headers =
-        $"HTTP/1.1 {code} {text}\r\n" +
-        $"Content-Type: {contentType}\r\n" +
-        $"Content-Length: {bodyBytes.Length}\r\n" +
-        "Connection: close\r\n" +
-        "\r\n";
-
-    await stream.WriteAsync(Encoding.UTF8.GetBytes(headers));
-    await stream.WriteAsync(bodyBytes);
-}
-
-var listener = new TcpListener(IPAddress.Any, PORT);
+var listener = new TcpListener(IPAddress.Any, config.Port);
 listener.Start();
-Console.WriteLine($"Server on {PORT}, root {Path.GetFullPath(webRootPath)}");
-LogOsThreads("startup");
+Console.WriteLine($"Server on {config.Port}, root {Path.GetFullPath(config.WebRootPath)}");
+loggingService.LogOsThreads("startup");
 
 while (true)
 {
     var client = await listener.AcceptTcpClientAsync();
-    // LogOsThreads("before dispatch");
-    _ = Task.Run(() => HandleClientAsync(client));
-    // LogOsThreads("after dispatch");
+    _ = Task.Run(() => httpHandler.HandleClientAsync(client));
 }
