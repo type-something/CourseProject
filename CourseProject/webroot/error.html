@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #0a0a0a;
+            color: #fff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .error-container {
+            background: #1a1a1a;
+            padding: 2.5rem;
+            border-radius: 8px;
+            max-width: 90%;
+            width: 400px;
+            border: 1px solid #2a2a2a;
+            text-align: center;
+        }
+        h1 {
+            color: #ff4d4d;
+            font-size: 2rem;
+            margin: 0 0 1rem;
+            font-weight: 600;
+        }
+        p {
+            color: #a0a0a0;
+            font-size: 1rem;
+            line-height: 1.5;
+            margin: 0;
+        }
+        .error-description {
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <h1>ERROR</h1>
+        <p id="error-code" style="display: none;">{{ERROR_CODE}}</p>
+        <p id="error-description" class="error-description"></p>
+    </div>
+    <script>
+        const errorDescriptions = {
+            '400': 'Bad Request',
+            '403': 'Forbidden',
+            '404': 'Not Found',
+            '405': 'Method Not Allowed',
+            '500': 'Internal Server Error'
+        };
+
+        const errorCodeElement = document.getElementById('error-code');
+        const errorCode = errorCodeElement.textContent.trim();
+        const descriptionElement = document.getElementById('error-description');
+        
+        if (errorCode && errorDescriptions[errorCode]) {
+            errorCodeElement.style.display = 'block';
+            descriptionElement.textContent = errorDescriptions[errorCode];
+        } else {
+            descriptionElement.textContent = 'Please try again later';
+        }
+    </script>
+</body>
+</html> 
